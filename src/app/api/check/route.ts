@@ -25,7 +25,7 @@ export const POST = async (request: NextRequest) => {
             limit: 200,
             window: 60 * 15, // 15 minutes
             identifier: (req) => {
-                const clientIp = (request.headers.get('x-forwarded-for') || '').split(',')[0].trim()
+                const clientIp = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim()
                 try {
                     return clientIp || 'unknown';
                 } catch {
