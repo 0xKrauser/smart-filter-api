@@ -17,23 +17,27 @@ const inputSchema = z.object({
 });
 
 export const POST = async (request: NextRequest) => {
-    // Apply rate limiting - 10 requests per minute
-    const rateLimitResponse = await rateLimiter(request, {
-        limit: 200,
-        window: 60 * 15, // 15 minutes
-        identifier: (req) => {
-            const clientIp = (request.headers.get('x-forwarded-for') || '').split(',')[0].trim()
-            try {
-                return clientIp || 'unknown';
-            } catch {
-                return clientIp || 'unknown';
-            }
-        }
-    });
 
-    // Return rate limit error if limit exceeded
-    if (rateLimitResponse) {
-        return rateLimitResponse;
+    const apiKey = request.headers.get('x-api-key');
+
+    if (!apiKey || apiKey !== process.env.API_KEY) {
+        const rateLimitResponse = await rateLimiter(request, {
+            limit: 200,
+            window: 60 * 15, // 15 minutes
+            identifier: (req) => {
+                const clientIp = (request.headers.get('x-forwarded-for') || '').split(',')[0].trim()
+                try {
+                    return clientIp || 'unknown';
+                } catch {
+                    return clientIp || 'unknown';
+                }
+            }
+        });
+
+        // Return rate limit error if limit exceeded
+        if (rateLimitResponse) {
+            return rateLimitResponse;
+        }
     }
 
     try {
@@ -57,7 +61,7 @@ export const POST = async (request: NextRequest) => {
             model: openai('gpt-4o-mini', { structuredOutputs: true }),
             schemaName: 'tagging',
             schemaDescription: 'tags images',
-            schema: z.object({result: schema}),
+            schema: z.object({ result: schema }),
             messages: [
                 { role: 'system', content: prompt },
                 {
@@ -83,8 +87,6 @@ export const POST = async (request: NextRequest) => {
         });
 
         schema.parse(result.object.result);
-
-        console.log({...result})
 
         const parsed = result.object.result.map(imageObject => imageObject.map((tagObject) => {
             return {
