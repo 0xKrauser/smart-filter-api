@@ -2,6 +2,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { rateLimiter } from "@/lib/rateLimiter";
 
 const openai = createOpenAI({
     compatibility: "strict",
@@ -16,6 +17,25 @@ const inputSchema = z.object({
 });
 
 export const POST = async (request: NextRequest) => {
+    // Apply rate limiting - 10 requests per minute
+    const rateLimitResponse = await rateLimiter(request, {
+        limit: 200,
+        window: 60 * 15, // 15 minutes
+        identifier: (req) => {
+            const clientIp = (request.headers.get('x-forwarded-for') || '').split(',')[0].trim()
+            try {
+                return clientIp || 'unknown';
+            } catch {
+                return clientIp || 'unknown';
+            }
+        }
+    });
+
+    // Return rate limit error if limit exceeded
+    if (rateLimitResponse) {
+        return rateLimitResponse;
+    }
+
     try {
         const json = await request.json();
 
